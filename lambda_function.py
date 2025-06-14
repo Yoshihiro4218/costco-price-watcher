@@ -57,7 +57,9 @@ def lambda_handler(event, context):
                 f"{url} の価格が {price} 円になりました (指定価格 {threshold} 円)"
             )
             send_line_message(line_token, user_id, message)
+            print(f"【通知】{url} の価格: {price}円（閾値: {threshold}円）-> 通知を送信しました。")
             results.append({"url": url, "price": price, "notified": True})
         else:
+            print(f"【未通知】{url} の価格: {price}円（閾値: {threshold}円）-> 通知は送信しません。")
             results.append({"url": url, "price": price, "notified": False})
     return {"results": results}
