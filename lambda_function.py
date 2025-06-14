@@ -50,8 +50,34 @@ def lambda_handler(event, context):
     for item in targets:
         url = item["url"]
         threshold = int(item["threshold"])
-        html = fetch_page(url)
-        price = extract_price(html)
+        try:
+            html = fetch_page(url)
+        except Exception as e:
+            error_msg = f"【エラー】{url} へのアクセス失敗: {e}"
+            print(error_msg)
+            results.append({
+                "url": url,
+                "price": None,
+                "notified": False,
+                "error": error_msg
+            })
+            continue
+
+        try:
+            price = extract_price(html)
+            if price is None:
+                raise ValueError("価格を取得できませんでした。")
+        except Exception as e:
+            error_msg = f"【エラー】{url} の価格取得失敗: {e}"
+            print(error_msg)
+            results.append({
+                "url": url,
+                "price": None,
+                "notified": False,
+                "error": error_msg
+            })
+            continue
+
         if price <= threshold:
             message = (
                 f"{url} の価格が {price} 円になりました (指定価格 {threshold} 円)"
@@ -62,4 +88,5 @@ def lambda_handler(event, context):
         else:
             print(f"【未通知】{url} の価格: {price}円（閾値: {threshold}円）-> 通知は送信しません。")
             results.append({"url": url, "price": price, "notified": False})
+
     return {"results": results}
