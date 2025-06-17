@@ -2,6 +2,7 @@ import os
 import json
 import re
 from urllib.request import Request, urlopen
+from bs4 import BeautifulSoup
 
 PRICE_RE = re.compile(r"¥([\d,]+)")
 
@@ -12,11 +13,24 @@ def fetch_page(url: str) -> str:
 
 
 def extract_price(html: str) -> int:
-    match = PRICE_RE.search(html)
-    if not match:
-        raise ValueError("Price not found")
-    price_str = match.group(1).replace(",", "")
-    return int(price_str)
+    soup = BeautifulSoup(html, 'html.parser')
+
+    # ① セール後の最終価格を優先
+    sale_elem = soup.select_one('.you-pay-value')
+    if sale_elem and sale_elem.get_text(strip=True):
+        price_text = sale_elem.get_text()
+    else:
+        # ② 通常時の価格
+        norm_elem = soup.select_one('.product-price-amount')  # or '.price-value' 両方試す場合も
+        if not norm_elem:
+            raise ValueError('価格要素が見つかりませんでした')
+        price_text = norm_elem.get_text()
+
+    # 「¥」「,」を取り除き、数字のみを抽出して整数に変換
+    digits = re.sub(r'\D', '', price_text)
+    if not digits:
+        raise ValueError(f'価格のパースに失敗しました: {price_text}')
+    return int(digits)
 
 
 def send_line_message(token: str, user_id: str, message: str) -> None:
