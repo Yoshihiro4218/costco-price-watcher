@@ -15,7 +15,7 @@ class DummyResponse:
 def test_lambda_handler(monkeypatch):
     data = {
         "metaTitle": "テスト商品",
-        "schemaOrgProduct": '{"offers": {"price": "1000.0"}}'
+        "schemaOrgProduct": '{"offers": {"price": "1000.0", "url": "https://example.com/product"}}'
     }
 
     def fake_urlopen(req, *args, **kwargs):
@@ -40,3 +40,4 @@ def test_lambda_handler(monkeypatch):
     result = lambda_handler({}, {})
     assert result['results'][0]['notified']
     assert 'テスト商品' in sent_messages[0]
+    assert 'https://example.com/product' in sent_messages[0]

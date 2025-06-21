@@ -1,6 +1,6 @@
 # costco-price-watcher
 
-AWS Lambda function that watches Costco product pages and sends a LINE notification when a price drops below a configured threshold. The notification message includes the product name taken from the API's `metaTitle` field.
+AWS Lambda function that watches Costco product pages and sends a LINE notification when a price drops below a configured threshold. The notification message includes the product name taken from the API's `metaTitle` field and the product URL extracted from the API response.
 
 ## Environment variables
 
