@@ -70,11 +70,13 @@ def lambda_handler(event, context):
         threshold = int(item["threshold"])
         try:
             data = fetch_product_details(product_code)
+            product_name = data.get("metaTitle", product_code)
         except Exception as e:
             error_msg = f"【エラー】{product_code} の取得失敗: {e}"
             print(error_msg)
             results.append({
                 "productCode": product_code,
+                "productName": None,
                 "price": None,
                 "notified": False,
                 "error": error_msg
@@ -86,10 +88,11 @@ def lambda_handler(event, context):
             if price is None:
                 raise ValueError("価格を取得できませんでした。")
         except Exception as e:
-            error_msg = f"【エラー】{product_code} の価格取得失敗: {e}"
+            error_msg = f"【エラー】{product_name} の価格取得失敗: {e}"
             print(error_msg)
             results.append({
                 "productCode": product_code,
+                "productName": product_name,
                 "price": None,
                 "notified": False,
                 "error": error_msg
@@ -100,17 +103,27 @@ def lambda_handler(event, context):
             price_str = f"{price:,}"
             threshold_str = f"{threshold:,}"
             message = (
-                f"{product_code} の価格が {price_str} 円になりました (指定価格 {threshold_str} 円)"
+                f"{product_name} の価格が {price_str} 円になりました (指定価格 {threshold_str} 円)"
             )
             send_line_message(line_token, user_id, message)
             print(
-                f"【通知】{product_code} の価格: {price}円（閾値: {threshold}円）-> 通知を送信しました。"
+                f"【通知】{product_name} の価格: {price}円（閾値: {threshold}円）-> 通知を送信しました。"
             )
-            results.append({"productCode": product_code, "price": price, "notified": True})
+            results.append({
+                "productCode": product_code,
+                "productName": product_name,
+                "price": price,
+                "notified": True,
+            })
         else:
             print(
-                f"【未通知】{product_code} の価格: {price}円（閾値: {threshold}円）-> 通知は送信しません。"
+                f"【未通知】{product_name} の価格: {price}円（閾値: {threshold}円）-> 通知は送信しません。"
             )
-            results.append({"productCode": product_code, "price": price, "notified": False})
+            results.append({
+                "productCode": product_code,
+                "productName": product_name,
+                "price": price,
+                "notified": False,
+            })
 
     return {"results": results}
