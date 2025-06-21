@@ -1,36 +1,40 @@
 import os
 import json
-import re
 from urllib.request import Request, urlopen
-from bs4 import BeautifulSoup
-
-PRICE_RE = re.compile(r"¥([\d,]+)")
 
 
-def fetch_page(url: str) -> str:
+
+API_URL = "https://www.costco.co.jp/rest/v2/japan/metadata/productDetails"
+
+
+def fetch_product_details(product_code: str) -> dict:
+    url = f"{API_URL}?code={product_code}&lang=ja&curr=JPY"
     with urlopen(url) as resp:
-        return resp.read().decode("utf-8")
+        return json.loads(resp.read().decode("utf-8"))
 
 
-def extract_price(html: str) -> int:
-    soup = BeautifulSoup(html, 'html.parser')
+def extract_price(data: dict) -> int:
+    schema_raw = data.get("schemaOrgProduct")
+    if not schema_raw:
+        raise ValueError("schemaOrgProduct field is missing")
 
-    # ① セール後の最終価格を優先
-    sale_elem = soup.select_one('.you-pay-value')
-    if sale_elem and sale_elem.get_text(strip=True):
-        price_text = sale_elem.get_text()
-    else:
-        # ② 通常時の価格
-        norm_elem = soup.select_one('.product-price-amount')  # or '.price-value' 両方試す場合も
-        if not norm_elem:
-            raise ValueError('価格要素が見つかりませんでした')
-        price_text = norm_elem.get_text()
+    try:
+        schema = json.loads(schema_raw)
+    except Exception as e:
+        raise ValueError(f"schemaOrgProduct parse error: {e}")
 
-    # 「¥」「,」を取り除き、数字のみを抽出して整数に変換
-    digits = re.sub(r'\D', '', price_text)
-    if not digits:
-        raise ValueError(f'価格のパースに失敗しました: {price_text}')
-    return int(digits)
+    price_str = (
+        schema.get("offers", {}).get("price")
+        if isinstance(schema.get("offers"), dict)
+        else None
+    )
+    if price_str is None:
+        raise ValueError("price field is missing")
+
+    try:
+        return int(float(price_str))
+    except Exception as e:
+        raise ValueError(f"invalid price value: {price_str} ({e})")
 
 
 def send_line_message(token: str, user_id: str, message: str) -> None:
@@ -62,15 +66,15 @@ def lambda_handler(event, context):
     targets = json.loads(targets_env)
     results = []
     for item in targets:
-        url = item["url"]
+        product_code = item["productCode"]
         threshold = int(item["threshold"])
         try:
-            html = fetch_page(url)
+            data = fetch_product_details(product_code)
         except Exception as e:
-            error_msg = f"【エラー】{url} へのアクセス失敗: {e}"
+            error_msg = f"【エラー】{product_code} の取得失敗: {e}"
             print(error_msg)
             results.append({
-                "url": url,
+                "productCode": product_code,
                 "price": None,
                 "notified": False,
                 "error": error_msg
@@ -78,14 +82,14 @@ def lambda_handler(event, context):
             continue
 
         try:
-            price = extract_price(html)
+            price = extract_price(data)
             if price is None:
                 raise ValueError("価格を取得できませんでした。")
         except Exception as e:
-            error_msg = f"【エラー】{url} の価格取得失敗: {e}"
+            error_msg = f"【エラー】{product_code} の価格取得失敗: {e}"
             print(error_msg)
             results.append({
-                "url": url,
+                "productCode": product_code,
                 "price": None,
                 "notified": False,
                 "error": error_msg
@@ -93,14 +97,20 @@ def lambda_handler(event, context):
             continue
 
         if price <= threshold:
+            price_str = f"{price:,}"
+            threshold_str = f"{threshold:,}"
             message = (
-                f"{url} の価格が {price} 円になりました (指定価格 {threshold} 円)"
+                f"{product_code} の価格が {price_str} 円になりました (指定価格 {threshold_str} 円)"
             )
             send_line_message(line_token, user_id, message)
-            print(f"【通知】{url} の価格: {price}円（閾値: {threshold}円）-> 通知を送信しました。")
-            results.append({"url": url, "price": price, "notified": True})
+            print(
+                f"【通知】{product_code} の価格: {price}円（閾値: {threshold}円）-> 通知を送信しました。"
+            )
+            results.append({"productCode": product_code, "price": price, "notified": True})
         else:
-            print(f"【未通知】{url} の価格: {price}円（閾値: {threshold}円）-> 通知は送信しません。")
-            results.append({"url": url, "price": price, "notified": False})
+            print(
+                f"【未通知】{product_code} の価格: {price}円（閾値: {threshold}円）-> 通知は送信しません。"
+            )
+            results.append({"productCode": product_code, "price": price, "notified": False})
 
     return {"results": results}

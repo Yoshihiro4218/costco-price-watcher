@@ -1,6 +1,7 @@
 from lambda_function import extract_price
 
-HTML = '<span class="product-price-amount"><span class="notranslate">¥1,848</span></span>'
+DATA = {"schemaOrgProduct": '{"offers": {"price": "1848.0"}}'}
+
 
 def test_extract_price():
-    assert extract_price(HTML) == 1848
+    assert extract_price(DATA) == 1848

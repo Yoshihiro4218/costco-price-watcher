@@ -13,12 +13,18 @@ class DummyResponse:
         pass
 
 def test_lambda_handler(monkeypatch):
-    html = '<span class="notranslate">¥1,000</span>'
+    data = {"schemaOrgProduct": '{"offers": {"price": "1000.0"}}'}
+
     def fake_urlopen(req, *args, **kwargs):
-        return DummyResponse(html)
+        return DummyResponse(json.dumps(data))
+
     monkeypatch.setattr('lambda_function.urlopen', fake_urlopen)
-    targets = [{'url': 'http://example.com', 'threshold': 2000}]
-    monkeypatch.setitem(lambda_handler.__globals__['os'].environ, 'TARGETS', json.dumps(targets))
+    targets = [{'productCode': '12345', 'threshold': 2000}]
+    monkeypatch.setitem(
+        lambda_handler.__globals__['os'].environ,
+        'TARGETS',
+        json.dumps(targets)
+    )
     monkeypatch.setitem(lambda_handler.__globals__['os'].environ, 'LINE_TOKEN', 'dummy')
     monkeypatch.setitem(lambda_handler.__globals__['os'].environ, 'LINE_USER_ID', 'U1234567890')
     result = lambda_handler({}, {})

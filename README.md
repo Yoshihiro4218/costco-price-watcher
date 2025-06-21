@@ -4,11 +4,11 @@ AWS Lambda function that watches Costco product pages and sends a LINE notificat
 
 ## Environment variables
 
-- `TARGETS` – JSON array of objects containing `url` and `threshold` keys. Example:
+- `TARGETS` – JSON array of objects containing `productCode` and `threshold` keys. Example:
   ```json
   [
-    {"url": "https://www.costco.co.jp/Example-Item", "threshold": 2000},
-    {"url": "https://www.costco.co.jp/Another", "threshold": 1500}
+    {"productCode": "74333", "threshold": 2000},
+    {"productCode": "12345", "threshold": 1500}
   ]
   ```
 - `LINE_TOKEN` – Channel access token for the LINE Messaging API.
