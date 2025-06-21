@@ -37,6 +37,27 @@ def extract_price(data: dict) -> int:
         raise ValueError(f"invalid price value: {price_str} ({e})")
 
 
+def extract_product_url(data: dict) -> str:
+    schema_raw = data.get("schemaOrgProduct")
+    if not schema_raw:
+        raise ValueError("schemaOrgProduct field is missing")
+
+    try:
+        schema = json.loads(schema_raw)
+    except Exception as e:
+        raise ValueError(f"schemaOrgProduct parse error: {e}")
+
+    url = None
+    offers = schema.get("offers")
+    if isinstance(offers, dict):
+        url = offers.get("url")
+    if not url:
+        url = schema.get("url") or schema.get("@id")
+    if not url:
+        raise ValueError("url field is missing")
+    return url
+
+
 def send_line_message(token: str, user_id: str, message: str) -> None:
     payload = json.dumps({
         "to": user_id,
@@ -87,6 +108,7 @@ def lambda_handler(event, context):
             price = extract_price(data)
             if price is None:
                 raise ValueError("価格を取得できませんでした。")
+            product_url = extract_product_url(data)
         except Exception as e:
             error_msg = f"【エラー】{product_name} の価格取得失敗: {e}"
             print(error_msg)
@@ -94,6 +116,7 @@ def lambda_handler(event, context):
                 "productCode": product_code,
                 "productName": product_name,
                 "price": None,
+                "productUrl": None,
                 "notified": False,
                 "error": error_msg
             })
@@ -103,7 +126,7 @@ def lambda_handler(event, context):
             price_str = f"{price:,}"
             threshold_str = f"{threshold:,}"
             message = (
-                f"{product_name} の価格が {price_str} 円になりました (指定価格 {threshold_str} 円)"
+                f"{product_name} の価格が {price_str} 円になりました (指定価格 {threshold_str} 円)\n{product_url}"
             )
             send_line_message(line_token, user_id, message)
             print(
@@ -113,6 +136,7 @@ def lambda_handler(event, context):
                 "productCode": product_code,
                 "productName": product_name,
                 "price": price,
+                "productUrl": product_url,
                 "notified": True,
             })
         else:
@@ -123,6 +147,7 @@ def lambda_handler(event, context):
                 "productCode": product_code,
                 "productName": product_name,
                 "price": price,
+                "productUrl": product_url,
                 "notified": False,
             })
 
