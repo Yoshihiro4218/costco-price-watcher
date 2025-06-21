@@ -71,8 +71,16 @@ def send_line_message(token: str, user_id: str, message: str) -> None:
             "Content-Type": "application/json"
         }
     )
-    with urlopen(req) as resp:
-        resp.read()
+    try:
+        with urlopen(req) as resp:
+            status = resp.status
+            body = resp.read().decode('utf-8')
+            print(f"LINE API response: status={status}, body={body}")
+            if status != 200:
+                raise RuntimeError(f"LINE push failed: {body}")
+    except Exception as e:
+        print(f"LINE push exception: {e}")
+        raise
 
 
 def lambda_handler(event, context):
